@@ -1,4 +1,4 @@
-## **Croned Twicasting Recorder** 
+## **Croned Twicasting Recorder mp4** 
 Checks the live status of streamers on twitcasting.tv automatically at scheduled time, and records the live stream if it's available 
 
 ---
@@ -12,9 +12,26 @@ This application constantly calls unofficial, non-documented twitcasting API to 
 
 ---
 
+### **Requirements**
+* **ffmpeg Installation**   
+  ffmpeg should be installed and added to the system's PATH for each platform:
+    - **Linux:** Install ffmpeg by running the following command in your terminal:
+      ```
+      sudo apt install ffmpeg
+      ```
+
+    - **macOS:** If you use Homebrew, you can install ffmpeg with the following command:
+      ```
+      brew install ffmpeg
+      ```
+
+    - **Windows:** You can download an executable from the ffmpeg website (https://ffmpeg.org/download.html) or use a package manager like Chocolatey to install it.
+
+---
+
 ### **Installation** 
 * **Executables**   
-  Executables can be found on [release page](https://github.com/jzhang046/croned-twitcasting-recorder/releases). 
+  Executables can be found on [release page](https://github.com/kenken0803kr/croned-twitcasting-recorder-mp4/releases). 
 * **Build from source**   
   Ensure that [golang is installed](https://golang.org/doc/install) on your system. 
   ```Bash
