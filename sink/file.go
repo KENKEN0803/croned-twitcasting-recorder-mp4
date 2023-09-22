@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/jzhang046/croned-twitcasting-recorder/record"
@@ -35,6 +36,25 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 			}
 		}
 		log.Printf("Completed writing all data to %s\n", filename)
+
+		// Run ffmpeg command to convert .ts to .mp4
+		mp4Filename := fmt.Sprintf("%s.mp4", filename)
+		ffmpegCmd := exec.Command("ffmpeg", "-i", filename, "-c:v", "copy", "-c:a", "copy", mp4Filename)
+		err := ffmpegCmd.Run()
+		if err != nil {
+			log.Printf("Error running ffmpeg command: %v\n", err)
+			recordCtx.Cancel()
+			return
+		}
+		log.Printf("Conversion to %s.mp4 completed\n", filename)
+
+		// Remove the original .ts file
+		if err := os.Remove(filename); err != nil {
+			log.Printf("Error removing %s: %v\n", filename, err)
+			recordCtx.Cancel()
+			return
+		}
+		log.Printf("Removed %s\n", filename)
 	}()
 
 	return sinkChan, nil
