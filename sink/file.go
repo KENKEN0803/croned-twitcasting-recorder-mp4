@@ -2,12 +2,11 @@ package sink
 
 import (
 	"fmt"
+	"github.com/jzhang046/croned-twitcasting-recorder/record"
 	"log"
 	"os"
 	"os/exec"
 	"time"
-
-	"github.com/jzhang046/croned-twitcasting-recorder/record"
 )
 
 const (
@@ -37,8 +36,14 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 		}
 		log.Printf("Completed writing all data to %s\n", filename)
 
+		if !isFFmpegInstalled() {
+			log.Printf("ffmpeg is not installed, skipping conversion to mp4\n")
+			return
+		}
+
 		// Run ffmpeg command to convert .ts to .mp4
 		mp4Filename := fmt.Sprintf("%s.mp4", filename)
+		log.Printf("Converting %s to %s\n", filename, mp4Filename)
 		ffmpegCmd := exec.Command("ffmpeg", "-i", filename, "-c:v", "copy", "-c:a", "copy", mp4Filename)
 		err := ffmpegCmd.Run()
 		if err != nil {
@@ -46,7 +51,7 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 			recordCtx.Cancel()
 			return
 		}
-		log.Printf("Conversion to %s.mp4 completed\n", filename)
+		log.Printf("Conversion to %s completed\n", mp4Filename)
 
 		// Remove the original .ts file
 		if err := os.Remove(filename); err != nil {
@@ -58,4 +63,15 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 	}()
 
 	return sinkChan, nil
+}
+
+func isFFmpegInstalled() bool {
+	ffmpegCmd := exec.Command("ffmpeg", "-version")
+	err := ffmpegCmd.Run()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok && !exitErr.Success() {
+			return false
+		}
+	}
+	return true
 }
