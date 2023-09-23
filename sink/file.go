@@ -14,12 +14,17 @@ const (
 	sinkChanBuffer = 16
 )
 
-func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
-	// If the file doesn't exist, create it, or append to the file
+func GetFileNames(recordCtx record.RecordContext) (string, string, string) {
 	timestamp := time.Now().Format(timeFormat)
 	baseFilename := fmt.Sprintf("%s-%s", recordCtx.GetStreamer(), timestamp)
 	tsFilename := baseFilename + ".ts"
 	mp4Filename := baseFilename + ".mp4"
+	return baseFilename, tsFilename, mp4Filename
+}
+
+func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
+	// If the file doesn't exist, create it, or append to the file
+	_, tsFilename, mp4Filename := GetFileNames(recordCtx)
 	f, err := os.OpenFile(tsFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
 		return nil, err
