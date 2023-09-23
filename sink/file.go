@@ -41,8 +41,13 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 			return
 		}
 
-		_ = convertAndRemoveFile(filename)
-		_ = removeFile(filename)
+		go func() {
+			err := convertTsToMp4(filename)
+			if err == nil {
+
+				_ = removeFile(filename)
+			}
+		}()
 	}()
 
 	return sinkChan, nil
@@ -59,7 +64,7 @@ func isFFmpegInstalled() bool {
 	return true
 }
 
-func convertAndRemoveFile(filename string) error {
+func convertTsToMp4(filename string) error {
 	// Run ffmpeg command to convert .ts to .mp4
 	mp4Filename := fmt.Sprintf("%s.mp4", filename)
 	log.Printf("Converting %s to %s\n", filename, mp4Filename)
