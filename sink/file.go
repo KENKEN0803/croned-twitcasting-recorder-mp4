@@ -16,12 +16,15 @@ const (
 
 func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 	// If the file doesn't exist, create it, or append to the file
-	filename := fmt.Sprintf("%s-%s.ts", recordCtx.GetStreamer(), time.Now().Format(timeFormat))
-	f, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+	timestamp := time.Now().Format(timeFormat)
+	baseFilename := fmt.Sprintf("%s-%s", recordCtx.GetStreamer(), timestamp)
+	tsFilename := baseFilename + ".ts"
+	mp4Filename := baseFilename + ".mp4"
+	f, err := os.OpenFile(tsFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Recording file %s", filename)
+	log.Printf("Recording file %s", tsFilename)
 
 	sinkChan := make(chan []byte, sinkChanBuffer)
 
@@ -29,12 +32,12 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 		defer f.Close()
 		for data := range sinkChan {
 			if _, err = f.Write(data); err != nil {
-				log.Printf("Error writing recording file %s: %v\n", filename, err)
+				log.Printf("Error writing recording file %s: %v\n", tsFilename, err)
 				recordCtx.Cancel()
 				return
 			}
 		}
-		log.Printf("Completed writing all data to %s\n", filename)
+		log.Printf("Completed writing all data to %s\n", tsFilename)
 
 		if !isFFmpegInstalled() {
 			log.Printf("ffmpeg is not installed, skipping conversion to mp4\n")
@@ -42,10 +45,9 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 		}
 
 		go func() {
-			err := convertTsToMp4(filename)
+			err := convertTsToMp4(tsFilename, mp4Filename)
 			if err == nil {
-
-				_ = removeFile(filename)
+				_ = removeFile(tsFilename)
 			}
 		}()
 	}()
@@ -64,11 +66,10 @@ func isFFmpegInstalled() bool {
 	return true
 }
 
-func convertTsToMp4(filename string) error {
+func convertTsToMp4(tsFilename string, mp4Filename string) error {
 	// Run ffmpeg command to convert .ts to .mp4
-	mp4Filename := fmt.Sprintf("%s.mp4", filename)
-	log.Printf("Converting %s to %s\n", filename, mp4Filename)
-	ffmpegCmd := exec.Command("ffmpeg", "-i", filename, "-c:v", "copy", "-c:a", "copy", mp4Filename)
+	log.Printf("Converting %s to %s\n", tsFilename, mp4Filename)
+	ffmpegCmd := exec.Command("ffmpeg", "-i", tsFilename, "-c:v", "copy", "-c:a", "copy", mp4Filename)
 	err := ffmpegCmd.Run()
 	if err != nil {
 		log.Printf("Error running ffmpeg command: %v\n", err)
