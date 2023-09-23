@@ -41,25 +41,8 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 			return
 		}
 
-		// Run ffmpeg command to convert .ts to .mp4
-		mp4Filename := fmt.Sprintf("%s.mp4", filename)
-		log.Printf("Converting %s to %s\n", filename, mp4Filename)
-		ffmpegCmd := exec.Command("ffmpeg", "-i", filename, "-c:v", "copy", "-c:a", "copy", mp4Filename)
-		err := ffmpegCmd.Run()
-		if err != nil {
-			log.Printf("Error running ffmpeg command: %v\n", err)
-			recordCtx.Cancel()
-			return
-		}
-		log.Printf("Conversion to %s completed\n", mp4Filename)
-
-		// Remove the original .ts file
-		if err := os.Remove(filename); err != nil {
-			log.Printf("Error removing %s: %v\n", filename, err)
-			recordCtx.Cancel()
-			return
-		}
-		log.Printf("Removed %s\n", filename)
+		_ = convertAndRemoveFile(filename)
+		_ = removeFile(filename)
 	}()
 
 	return sinkChan, nil
@@ -74,4 +57,28 @@ func isFFmpegInstalled() bool {
 		}
 	}
 	return true
+}
+
+func convertAndRemoveFile(filename string) error {
+	// Run ffmpeg command to convert .ts to .mp4
+	mp4Filename := fmt.Sprintf("%s.mp4", filename)
+	log.Printf("Converting %s to %s\n", filename, mp4Filename)
+	ffmpegCmd := exec.Command("ffmpeg", "-i", filename, "-c:v", "copy", "-c:a", "copy", mp4Filename)
+	err := ffmpegCmd.Run()
+	if err != nil {
+		log.Printf("Error running ffmpeg command: %v\n", err)
+		return err
+	}
+	log.Printf("Conversion to %s completed\n", mp4Filename)
+	return nil
+}
+
+func removeFile(filename string) error {
+	if err := os.Remove(filename); err != nil {
+		log.Printf("Error removing %s: %v\n", filename, err)
+		return err
+	}
+	log.Printf("Removed %s\n", filename)
+
+	return nil
 }
