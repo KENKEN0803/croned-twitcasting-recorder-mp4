@@ -52,7 +52,7 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 		go func() {
 			err := convertTsToMp4(tsFilename, mp4Filename)
 			if err == nil {
-				_ = removeFile(tsFilename)
+				_ = RemoveFile(tsFilename)
 			}
 		}()
 	}()
@@ -84,7 +84,7 @@ func convertTsToMp4(tsFilename string, mp4Filename string) error {
 	return nil
 }
 
-func removeFile(filename string) error {
+func RemoveFile(filename string) error {
 	if err := os.Remove(filename); err != nil {
 		log.Printf("Error removing %s: %v\n", filename, err)
 		return err
