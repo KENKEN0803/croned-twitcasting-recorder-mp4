@@ -6,6 +6,7 @@ import (
 	"github.com/sacOO7/gowebsocket"
 
 	"github.com/jzhang046/croned-twitcasting-recorder/record"
+	"github.com/jzhang046/croned-twitcasting-recorder/sink"
 )
 
 func RecordWS(recordCtx record.RecordContext, sinkChan chan<- []byte) {
@@ -25,6 +26,9 @@ func RecordWS(recordCtx record.RecordContext, sinkChan chan<- []byte) {
 	socket.OnConnectError = func(err error, socket gowebsocket.Socket) {
 		log.Println("Error connecting to stream URL: ", err)
 		recordCtx.Cancel()
+		// websocket: bad handshake error occurs on a membership-only stream.
+		_, tsFilename, _ := sink.GetFileNames(recordCtx)
+		_ = sink.RemoveFile(tsFilename)
 	}
 	socket.OnConnected = func(socket gowebsocket.Socket) {
 		log.Printf("Connected to live stream for [%s], recording start \n", streamer)
