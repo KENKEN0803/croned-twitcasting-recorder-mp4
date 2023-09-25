@@ -1,5 +1,6 @@
 ## **Croned Twicasting Recorder mp4** 
-Checks the live status of streamers on twitcasting.tv automatically at scheduled time, and records the live stream if it's available 
+Checks the live status of streamers on twitcasting.tv automatically at scheduled time, and records the live stream if it's available  
+If ffmpeg installed, converts the .ts file to .mp4 file.
 
 ---
 
@@ -26,12 +27,14 @@ This application constantly calls unofficial, non-documented twitcasting API to 
       ```
 
     - **Windows:** You can download an executable from the ffmpeg website (https://ffmpeg.org/download.html) or use a package manager like Chocolatey to install it.
+    
+        Executable files must be registered with PATH.
 
 ---
 
 ### **Installation** 
 * **Executables**   
-  Executables can be found on [release page](https://github.com/kenken0803kr/croned-twitcasting-recorder-mp4/releases). 
+  Executables can be found on [release page](https://github.com/KENKEN0803/croned-twitcasting-recorder-mp4/releases). 
 * **Build from source**   
   Ensure that [golang is installed](https://golang.org/doc/install) on your system. 
   ```Bash
@@ -46,11 +49,14 @@ This application constantly calls unofficial, non-documented twitcasting API to 
 * **Croned recording mode _(default)_**  
   Please refer to [configuration](#configuration) section below to create configuration file. 
   ```Bash
+  # Grant execution permission
+  chmod 755 ./bin/croned-twitcasting-recorder-mp4
+  
   # Execute below command to start the recorder
-  ./bin/croned-twitcasting-recorder
+  ./bin/croned-twitcasting-recorder-mp4
 
   # Or specify croned recording mode explicitly 
-  ./bin/croned-twitcasting-recorder croned
+  ./bin/croned-twitcasting-recorder-mp4 croned
   ```
 
 * **Direct recording mode**  
@@ -66,11 +72,13 @@ This application constantly calls unofficial, non-documented twitcasting API to 
     	[optional] retry backoff period (default 15s)
   -streamer string
     	[required] streamer URL
+  -encode-option string
+          [optional] ffmpeg video encode option. (default copy)
   """
   # Streamer URL must be supplied as argument 
 
   # Example: 
-  ./bin/croned-twitcasting-recorder direct --streamer=azusa_shirokyan --retries=10 --retry-backoff=1m
+  ./bin/croned-twitcasting-recorder direct --streamer=azusa_shirokyan --retries=10 --retry-backoff=1m --encode-option=libx265
   ```
 
 ---
@@ -88,9 +96,13 @@ This application constantly calls unofficial, non-documented twitcasting API to 
     Please refer to the below docs for supported schedule definitions: 
     - https://pkg.go.dev/github.com/robfig/cron/v3#hdr-CRON_Expression_Format
     - https://pkg.go.dev/github.com/robfig/cron/v3#hdr-Predefined_schedules   
+  + `encode-option`:  
+  If not provided, copy the stream without encoding and rebuild the .ts file to mp4 file.  
+  See full documentation at https://ffmpeg.org/ffmpeg-codecs.html#toc-Video-Encoders
 
 ---
 
 ### **Output**  
   Output recording file would be put under the current directory, named after `screen-id-yyyyMMdd-HHmm.ts`  
-  For example, a recording starts at 15:04 on 2nd Jan 2006 of streamer [小野寺梓@真っ白なキャンバス](https://twitcasting.tv/azusa_shirokyan) would create recording file `azusa_shirokyan-20060102-1504.ts`
+  For example, a recording starts at 15:04 on 2nd Jan 2006 of streamer [小野寺梓@真っ白なキャンバス](https://twitcasting.tv/azusa_shirokyan) would create recording file `azusa_shirokyan-20060102-1504.ts`  
+  If ffmpeg is installed, .mp4 file is created instead of .ts file of the same name.

@@ -1,3 +1,4 @@
-streamers: 
+streamers:
   - screen-id: "azusa_shirokyan"
     schedule: "@every 3m"
+#    encode-option: "libx265"
