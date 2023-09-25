@@ -34,6 +34,7 @@ func RecordCroned() {
 				SinkProvider:     sink.NewFileSink,
 				StreamRecorder:   twitcasting.RecordWS,
 				RootContext:      interruptCtx,
+				EncodeOption:     streamerConfig.EncodeOption,
 			}),
 		); err != nil {
 			log.Fatalln("Failed adding record schedule: ", err)

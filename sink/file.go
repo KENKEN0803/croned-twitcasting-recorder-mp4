@@ -50,7 +50,7 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 		}
 
 		go func() {
-			err := convertTsToMp4(tsFilename, mp4Filename)
+			err := convertTsToMp4(tsFilename, mp4Filename, recordCtx.GetEncodeOption())
 			if err == nil {
 				_ = RemoveFile(tsFilename)
 			}
@@ -71,10 +71,15 @@ func isFFmpegInstalled() bool {
 	return true
 }
 
-func convertTsToMp4(tsFilename string, mp4Filename string) error {
+func convertTsToMp4(tsFilename string, mp4Filename string, encodeOption *string) error {
 	// Run ffmpeg command to convert .ts to .mp4
-	log.Printf("Converting %s to %s\n", tsFilename, mp4Filename)
-	ffmpegCmd := exec.Command("ffmpeg", "-i", tsFilename, "-c:v", "copy", "-c:a", "copy", mp4Filename)
+
+	if encodeOption == nil {
+		*encodeOption = "copy"
+	}
+
+	log.Printf("Converting %s to %s using encode option %s\n", tsFilename, mp4Filename, *encodeOption)
+	ffmpegCmd := exec.Command("ffmpeg", "-i", tsFilename, "-c:v", *encodeOption, "-c:a", "copy", mp4Filename)
 	err := ffmpegCmd.Run()
 	if err != nil {
 		log.Printf("Error running ffmpeg command: %v\n", err)

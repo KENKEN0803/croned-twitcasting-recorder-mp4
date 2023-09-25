@@ -11,6 +11,7 @@ type RecordConfig struct {
 	SinkProvider     func(RecordContext) (chan<- []byte, error)
 	StreamRecorder   func(RecordContext, chan<- []byte)
 	RootContext      context.Context
+	EncodeOption     *string
 }
 
 func ToRecordFunc(recordConfig *RecordConfig) func() {

@@ -31,6 +31,7 @@ func RecordDirect(args []string) {
 		defaultRetryBackoffPeriod,
 		"[optional] retry backoff period",
 	)
+	encodeOption := directRecordCmd.String("encode-option", "", "[optional] encode option of ffmpeg")
 
 	directRecordCmd.Parse(args)
 
@@ -58,6 +59,7 @@ func RecordDirect(args []string) {
 			SinkProvider:     sink.NewFileSink,
 			StreamRecorder:   twitcasting.RecordWS,
 			RootContext:      interruptCtx,
+			EncodeOption:     encodeOption,
 		})()
 		select {
 		// wait for either interrupted or retry backoff period

@@ -17,6 +17,9 @@ type RecordContext interface {
 
 	// GetStreamer returns streamer's screen ID of this context.
 	GetStreamer() string
+
+	// GetEncodeOption returns ffmpeg video encode options of this context
+	GetEncodeOption() *string
 }
 
 type recordContextImpl struct {
@@ -27,8 +30,9 @@ type recordContextImpl struct {
 type contextKey string
 
 const (
-	streamerKey  = contextKey("streamer")
-	streamUrlKey = contextKey("streamUrl")
+	streamerKey     = contextKey("streamer")
+	streamUrlKey    = contextKey("streamUrl")
+	encodeOptionKey = contextKey("encodeOption")
 )
 
 func newRecordContext(ctx context.Context, streamer, streamUrl string) RecordContext {
@@ -56,4 +60,8 @@ func (ctxImpl *recordContextImpl) GetStreamUrl() string {
 
 func (ctxImpl *recordContextImpl) GetStreamer() string {
 	return ctxImpl.ctx.Value(streamerKey).(string)
+}
+
+func (ctxImpl *recordContextImpl) GetEncodeOption() *string {
+	return ctxImpl.ctx.Value(encodeOptionKey).(*string)
 }
