@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"github.com/jzhang046/croned-twitcasting-recorder/sink"
 	"log"
 	"os"
 	"os/signal"
@@ -20,7 +21,7 @@ func newInterruptableCtx() (context.Context, <-chan struct{}) {
 
 	go func() {
 		<-interrupt
-
+		sink.IsTerminating = true
 		log.Printf("Terminating in %s.. \n", terminationGraceDuration)
 		cancelOnInterrupt()
 		time.Sleep(terminationGraceDuration)

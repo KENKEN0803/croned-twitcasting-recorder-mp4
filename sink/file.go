@@ -14,6 +14,8 @@ const (
 	sinkChanBuffer = 16
 )
 
+var IsTerminating = false
+
 func GetFileNames(recordCtx record.RecordContext) (string, string, string) {
 	timestamp := time.Now().Format(timeFormat)
 	baseFilename := fmt.Sprintf("%s-%s", recordCtx.GetStreamer(), timestamp)
@@ -45,16 +47,18 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 
 		log.Printf("Completed writing all data to %s\n", tsFilename)
 
-		go func() {
-			if isFFmpegInstalled() {
-				err := convertTsToMp4(tsFilename, mp4Filename, recordCtx.GetEncodeOption())
-				if err == nil {
-					_ = RemoveFile(tsFilename)
+		if !IsTerminating {
+			go func() {
+				if isFFmpegInstalled() {
+					err := convertTsToMp4(tsFilename, mp4Filename, recordCtx.GetEncodeOption())
+					if err == nil {
+						_ = RemoveFile(tsFilename)
+					}
+				} else {
+					log.Printf("ffmpeg is not installed, skipping conversion to mp4\n")
 				}
-			} else {
-				log.Printf("ffmpeg is not installed, skipping conversion to mp4\n")
-			}
-		}()
+			}()
+		}
 
 	}()
 
