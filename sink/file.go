@@ -42,19 +42,20 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 				return
 			}
 		}
+
 		log.Printf("Completed writing all data to %s\n", tsFilename)
 
-		if !isFFmpegInstalled() {
-			log.Printf("ffmpeg is not installed, skipping conversion to mp4\n")
-			return
-		}
-
 		go func() {
-			err := convertTsToMp4(tsFilename, mp4Filename, recordCtx.GetEncodeOption())
-			if err == nil {
-				_ = RemoveFile(tsFilename)
+			if isFFmpegInstalled() {
+				err := convertTsToMp4(tsFilename, mp4Filename, recordCtx.GetEncodeOption())
+				if err == nil {
+					_ = RemoveFile(tsFilename)
+				}
+			} else {
+				log.Printf("ffmpeg is not installed, skipping conversion to mp4\n")
 			}
 		}()
+
 	}()
 
 	return sinkChan, nil
