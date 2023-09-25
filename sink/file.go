@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 )
 
@@ -18,7 +19,12 @@ var IsTerminating = false
 
 func GetFileNames(recordCtx record.RecordContext) (string, string, string) {
 	timestamp := time.Now().Format(timeFormat)
-	baseFilename := fmt.Sprintf("%s-%s", recordCtx.GetStreamer(), timestamp)
+	streamer := recordCtx.GetStreamer()
+
+	// Replace ":" with "_"
+	streamer = strings.ReplaceAll(streamer, ":", "_")
+
+	baseFilename := fmt.Sprintf("%s-%s", streamer, timestamp)
 	tsFilename := baseFilename + ".ts"
 	mp4Filename := baseFilename + ".mp4"
 	return baseFilename, tsFilename, mp4Filename
