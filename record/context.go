@@ -35,10 +35,11 @@ const (
 	encodeOptionKey = contextKey("encodeOption")
 )
 
-func newRecordContext(ctx context.Context, streamer, streamUrl string) RecordContext {
+func newRecordContext(ctx context.Context, streamer, streamUrl string, encodeOption *string) RecordContext {
 	ctx, cancelFunc := context.WithCancel(ctx)
 	ctx = context.WithValue(ctx, streamUrlKey, streamUrl)
 	ctx = context.WithValue(ctx, streamerKey, streamer)
+	ctx = context.WithValue(ctx, encodeOptionKey, encodeOption)
 	return &recordContextImpl{ctx, cancelFunc}
 }
 

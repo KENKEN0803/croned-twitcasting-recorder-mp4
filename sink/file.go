@@ -76,6 +76,7 @@ func convertTsToMp4(tsFilename string, mp4Filename string, encodeOption *string)
 	// Run ffmpeg command to convert .ts to .mp4
 
 	if encodeOption == nil {
+		encodeOption = new(string)
 		*encodeOption = "copy"
 	}
 

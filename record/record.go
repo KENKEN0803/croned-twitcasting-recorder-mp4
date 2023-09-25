@@ -23,7 +23,7 @@ func ToRecordFunc(recordConfig *RecordConfig) func() {
 			return
 		}
 		log.Printf("Fetched stream URL for streamer [%s]: %s\n", streamer, streamUrl)
-		recordCtx := newRecordContext(recordConfig.RootContext, streamer, streamUrl)
+		recordCtx := newRecordContext(recordConfig.RootContext, streamer, streamUrl, recordConfig.EncodeOption)
 
 		sinkChan, err := recordConfig.SinkProvider(recordCtx)
 		if err != nil {
