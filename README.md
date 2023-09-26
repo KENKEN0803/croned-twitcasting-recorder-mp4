@@ -78,7 +78,7 @@ This application constantly calls unofficial, non-documented twitcasting API to 
   # Streamer URL must be supplied as argument 
 
   # Example: 
-  ./bin/croned-twitcasting-recorder direct --streamer=azusa_shirokyan --retries=10 --retry-backoff=1m --encode-option=libx265
+  ./bin/croned-twitcasting-recorder direct --streamer=azusa_shirokyan --retries=10 --retry-backoff=1m --encode-option="libx265 -preset ultrafast"
   ```
 
 ---
@@ -98,7 +98,9 @@ This application constantly calls unofficial, non-documented twitcasting API to 
     - https://pkg.go.dev/github.com/robfig/cron/v3#hdr-Predefined_schedules   
   + `encode-option`:  
   If not provided, copy the stream without encoding and rebuild the .ts file to mp4 file.  
-  See full documentation at https://ffmpeg.org/ffmpeg-codecs.html#toc-Video-Encoders
+  See full documentation at 
+    - https://ffmpeg.org/ffmpeg-codecs.html#toc-Video-Encoders
+    - https://trac.ffmpeg.org/wiki/Encode/H.265
 
 ---
 
