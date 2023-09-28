@@ -90,8 +90,18 @@ func convertTsToMp4(tsFilename string, mp4Filename string, encodeOption *string)
 		*encodeOption = "copy"
 	}
 
-	log.Printf("Converting %s to %s using encode option %s\n", tsFilename, mp4Filename, *encodeOption)
-	ffmpegCmd := exec.Command("ffmpeg", "-i", tsFilename, "-c:v", *encodeOption, "-c:a", "copy", mp4Filename)
+	// Split the encodeOption string into separate arguments
+	encodeOptions := strings.Fields(*encodeOption)
+
+	// Create a command with individual arguments
+	ffmpegArgs := []string{"-i", tsFilename, "-c:v"}
+	ffmpegArgs = append(ffmpegArgs, encodeOptions...)
+	ffmpegArgs = append(ffmpegArgs, "-c:a", "copy", mp4Filename)
+
+	log.Printf("Stert Converting... ffmpeg args = %v\n", ffmpegArgs)
+
+	ffmpegCmd := exec.Command("ffmpeg", ffmpegArgs...)
+
 	err := ffmpegCmd.Run()
 	if err != nil {
 		log.Printf("Error running ffmpeg command: %v\n", err)
