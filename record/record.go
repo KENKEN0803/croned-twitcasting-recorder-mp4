@@ -22,8 +22,15 @@ func ToRecordFunc(recordConfig *RecordConfig) func() {
 			log.Printf("Error fetching stream URL for streamer [%s]: %v\n", streamer, err)
 			return
 		}
-		log.Printf("Fetched stream URL for streamer [%s]: %s\n", streamer, streamUrl)
-		recordCtx := newRecordContext(recordConfig.RootContext, streamer, streamUrl, recordConfig.EncodeOption)
+		log.Printf("Fetched stream URL for streamer [%s]: %s. ", streamer, streamUrl)
+
+		streamTitle, err := GetStreamTitle(streamer)
+		if err != nil {
+			log.Printf("Error fetching stream title for streamer [%s]: %v\n", streamer, err)
+		}
+		log.Printf("Stream Title is %s\n", streamTitle)
+
+		recordCtx := newRecordContext(recordConfig.RootContext, streamer, streamUrl, streamTitle, recordConfig.EncodeOption)
 
 		sinkChan, err := recordConfig.SinkProvider(recordCtx)
 		if err != nil {

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -18,17 +19,20 @@ const (
 
 var IsTerminating = false
 
+func sanitizePathString(input string) string {
+	regex := regexp.MustCompile(`[\{\}\[\]\/?.,;:|\)*~!^\-_+<>@\#$%&\\\=\(\'\"\n\r]+`)
+	return regex.ReplaceAllString(input, "")
+}
+
 func GetFilePaths(recordCtx record.RecordContext) (string, string, string) {
 	timestamp := time.Now().Format(timeFormat)
-	streamer := recordCtx.GetStreamer()
+	streamer := sanitizePathString(recordCtx.GetStreamer())
+	streamTitle := sanitizePathString(recordCtx.GetStreamTitle())
 
-	// Replace ":" with "_"
-	streamer = strings.ReplaceAll(streamer, ":", "_")
-
-	baseFilename := fmt.Sprintf("%s-%s", streamer, timestamp)
+	fileName := fmt.Sprintf("%s-%s", timestamp, streamTitle)
 	streamerRecordPath := fmt.Sprintf("%s/%s", baseRecordingPath, streamer)
-	tsFilePath := fmt.Sprintf("%s/%s.ts", streamerRecordPath, baseFilename)
-	mp4FilePath := fmt.Sprintf("%s/%s.mp4", streamerRecordPath, baseFilename)
+	tsFilePath := fmt.Sprintf("%s/%s.ts", streamerRecordPath, fileName)
+	mp4FilePath := fmt.Sprintf("%s/%s.mp4", streamerRecordPath, fileName)
 	return tsFilePath, mp4FilePath, streamerRecordPath
 }
 

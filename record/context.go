@@ -18,6 +18,9 @@ type RecordContext interface {
 	// GetStreamer returns streamer's screen ID of this context.
 	GetStreamer() string
 
+	// GetStreamTitle returns stream title of this context.
+	GetStreamTitle() string
+
 	// GetEncodeOption returns ffmpeg video encode options of this context
 	GetEncodeOption() *string
 }
@@ -33,12 +36,14 @@ const (
 	streamerKey     = contextKey("streamer")
 	streamUrlKey    = contextKey("streamUrl")
 	encodeOptionKey = contextKey("encodeOption")
+	streamTitleKey  = contextKey("streamTitle")
 )
 
-func newRecordContext(ctx context.Context, streamer, streamUrl string, encodeOption *string) RecordContext {
+func newRecordContext(ctx context.Context, streamer, streamUrl string, streamTitle string, encodeOption *string) RecordContext {
 	ctx, cancelFunc := context.WithCancel(ctx)
 	ctx = context.WithValue(ctx, streamUrlKey, streamUrl)
 	ctx = context.WithValue(ctx, streamerKey, streamer)
+	ctx = context.WithValue(ctx, streamTitleKey, streamTitle)
 	ctx = context.WithValue(ctx, encodeOptionKey, encodeOption)
 	return &recordContextImpl{ctx, cancelFunc}
 }
@@ -61,6 +66,10 @@ func (ctxImpl *recordContextImpl) GetStreamUrl() string {
 
 func (ctxImpl *recordContextImpl) GetStreamer() string {
 	return ctxImpl.ctx.Value(streamerKey).(string)
+}
+
+func (ctxImpl *recordContextImpl) GetStreamTitle() string {
+	return ctxImpl.ctx.Value(streamTitleKey).(string)
 }
 
 func (ctxImpl *recordContextImpl) GetEncodeOption() *string {
