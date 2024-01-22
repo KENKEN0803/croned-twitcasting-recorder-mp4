@@ -11,13 +11,14 @@ import (
 )
 
 const (
-	timeFormat     = "20060102-1504"
-	sinkChanBuffer = 16
+	timeFormat        = "20060102-1504"
+	sinkChanBuffer    = 16
+	baseRecordingPath = "./file"
 )
 
 var IsTerminating = false
 
-func GetFileNames(recordCtx record.RecordContext) (string, string, string) {
+func GetFilePaths(recordCtx record.RecordContext) (string, string, string) {
 	timestamp := time.Now().Format(timeFormat)
 	streamer := recordCtx.GetStreamer()
 
@@ -25,19 +26,45 @@ func GetFileNames(recordCtx record.RecordContext) (string, string, string) {
 	streamer = strings.ReplaceAll(streamer, ":", "_")
 
 	baseFilename := fmt.Sprintf("%s-%s", streamer, timestamp)
-	tsFilename := baseFilename + ".ts"
-	mp4Filename := baseFilename + ".mp4"
-	return baseFilename, tsFilename, mp4Filename
+	streamerRecordPath := fmt.Sprintf("%s/%s", baseRecordingPath, streamer)
+	tsFilePath := fmt.Sprintf("%s/%s.ts", streamerRecordPath, baseFilename)
+	mp4FilePath := fmt.Sprintf("%s/%s.mp4", streamerRecordPath, baseFilename)
+	return tsFilePath, mp4FilePath, streamerRecordPath
+}
+
+func CreateRecordingFolder(streamerRecordPath string) error {
+	if _, err := os.Stat(baseRecordingPath); os.IsNotExist(err) {
+		err = os.Mkdir(baseRecordingPath, 0755)
+		if err != nil {
+			log.Printf("Error creating recording folder %s: %v\n", baseRecordingPath, err)
+			return err
+		}
+	}
+
+	if _, err := os.Stat(streamerRecordPath); os.IsNotExist(err) {
+		err = os.Mkdir(streamerRecordPath, 0755)
+		if err != nil {
+			log.Printf("Error creating recording folder %s: %v\n", streamerRecordPath, err)
+			return err
+		}
+	}
+	return nil
 }
 
 func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
-	// If the file doesn't exist, create it, or append to the file
-	_, tsFilename, mp4Filename := GetFileNames(recordCtx)
-	f, err := os.OpenFile(tsFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+	tsFilePath, mp4FilePath, streamerRecordPath := GetFilePaths(recordCtx)
+
+	err := CreateRecordingFolder(streamerRecordPath)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Recording file %s", tsFilename)
+
+	// If the file doesn't exist, create it, or append to the file
+	f, err := os.OpenFile(tsFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("Recording file %s", tsFilePath)
 
 	sinkChan := make(chan []byte, sinkChanBuffer)
 
@@ -45,20 +72,20 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 		defer f.Close()
 		for data := range sinkChan {
 			if _, err = f.Write(data); err != nil {
-				log.Printf("Error writing recording file %s: %v\n", tsFilename, err)
+				log.Printf("Error writing recording file %s: %v\n", tsFilePath, err)
 				recordCtx.Cancel()
 				return
 			}
 		}
 
-		log.Printf("Completed writing all data to %s\n", tsFilename)
+		log.Printf("Completed writing all data to %s\n", tsFilePath)
 
 		if !IsTerminating {
 			go func() {
 				if isFFmpegInstalled() {
-					err := convertTsToMp4(tsFilename, mp4Filename, recordCtx.GetEncodeOption())
+					err := convertTsToMp4(tsFilePath, mp4FilePath, recordCtx.GetEncodeOption())
 					if err == nil {
-						_ = RemoveFile(tsFilename)
+						_ = RemoveFile(tsFilePath)
 					}
 				} else {
 					log.Printf("ffmpeg is not installed, skipping conversion to mp4\n")

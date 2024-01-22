@@ -27,8 +27,8 @@ func RecordWS(recordCtx record.RecordContext, sinkChan chan<- []byte) {
 		log.Println("Error connecting to stream URL: ", err)
 		recordCtx.Cancel()
 		// websocket: bad handshake error occurs on a membership-only stream.
-		_, tsFilename, _ := sink.GetFileNames(recordCtx)
-		_ = sink.RemoveFile(tsFilename)
+		tsFilePath, _, _ := sink.GetFilePaths(recordCtx)
+		_ = sink.RemoveFile(tsFilePath)
 	}
 	socket.OnConnected = func(socket gowebsocket.Socket) {
 		log.Printf("Connected to live stream for [%s], recording start \n", streamer)

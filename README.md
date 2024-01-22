@@ -105,6 +105,6 @@ This application constantly calls unofficial, non-documented twitcasting API to 
 ---
 
 ### **Output**  
-  Output recording file would be put under the current directory, named after `screen-id-yyyyMMdd-HHmm.ts`  
-  For example, a recording starts at 15:04 on 2nd Jan 2006 of streamer [小野寺梓@真っ白なキャンバス](https://twitcasting.tv/azusa_shirokyan) would create recording file `azusa_shirokyan-20060102-1504.ts`  
+  Output recording file would be put under the ./file/{screen-id}/ directory, named after `screen-id-yyyyMMdd-HHmm.ts`  
+  For example, a recording starts at 15:04 on 2nd Jan 2006 of streamer [小野寺梓@真っ白なキャンバス](https://twitcasting.tv/azusa_shirokyan) would create recording file `./file/azusa_shirokyan/azusa_shirokyan-20060102-1504.ts`  
   If ffmpeg is installed, .mp4 file is created instead of .ts file of the same name.
