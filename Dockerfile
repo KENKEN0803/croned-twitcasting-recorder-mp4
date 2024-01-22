@@ -1,28 +1,19 @@
-# Use a golang base image to build the Go project
-FROM golang:latest AS builder
+FROM --platform=$TARGETPLATFORM golang:1.21.6-alpine3.19 AS builder
 
-# Set the working directory inside the container
-WORKDIR /app
+WORKDIR /tw
 
-# Copy the Go project files into the container
 COPY . .
 
-# Build the Go project for various platforms
-RUN GOOS=linux GOARCH=amd64 go build -o ./bin/croned-twitcasting-recorder-mp4_linux_amd64
+RUN GOOS=linux go build -o ./bin/croned-twitcasting-recorder-mp4
 
-# Use a new image as a runtime container
-FROM debian:bullseye-slim
+FROM --platform=$TARGETPLATFORM alpine:3.19.0
 
-# Install ffmpeg using apt-get
-RUN apt-get update \
-    && apt-get install -y ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk update && apk add ffmpeg
 
-# Copy the built Go binaries from the builder stage into the runtime container
-COPY --from=builder /app/bin/ /app/
+WORKDIR /tw
 
-# Set the working directory inside the container
-WORKDIR /app
+COPY --from=builder /tw/bin/ /tw/
 
-# Define the entry point for your application (modify as needed)
-CMD ["./croned-twitcasting-recorder-mp4_linux_amd64"]
+ENTRYPOINT ["/tw/croned-twitcasting-recorder-mp4"]
+
+CMD ["croned"]
