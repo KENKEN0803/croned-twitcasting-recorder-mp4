@@ -8,7 +8,7 @@ RUN GOOS=linux go build -o ./bin/croned-twitcasting-recorder-mp4
 
 FROM --platform=$TARGETPLATFORM alpine:3.19.0
 
-RUN apk update && apk add ffmpeg
+RUN apk update && apk add --no-cache ffmpeg tzdata
 
 WORKDIR /tw
 

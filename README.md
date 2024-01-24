@@ -22,6 +22,7 @@ that:
 ### [Docker support](https://hub.docker.com/r/kenken0803kr/croned-twitcasting-recorder-mp4/tags)
 Docker image with ffmpeg pre-installed is available.
 * It is recommended to mount the `/tw/file` path, which is the file storage path inside the container.
+* It is recommended to using the environment variable TZ to set it to the same time zone as your host.
 * If you want to use the direct mode, you need to specify `"direct"` argument and `"-streamer="`  [Usage](#usage)
 * If you want to use the croned mode, you need to mount the `/tw/config.yaml`
 
@@ -42,6 +43,8 @@ version: '3'
 services:
   croned-twitcasting-recorder:
     image: kenken0803kr/croned-twitcasting-recorder-mp4:latest
+    environment:
+      - TZ=Asia/Seoul
     volumes:
       - ./:/tw/file
       - ./config.yaml:/tw/config.yaml
