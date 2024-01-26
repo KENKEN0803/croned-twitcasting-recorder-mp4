@@ -67,10 +67,10 @@ services:
       brew install ffmpeg
       ```
 
-    - **Windows:** You can download an executable from the ffmpeg website (https://ffmpeg.org/download.html) or use a
-      package manager like Chocolatey to install it.
-
-      Executable files must be registered with PATH.
+    - **Windows:** If you use Windows 11, winget is already installed.
+      ```
+      winget install --id=Gyan.FFmpeg  -e
+      ```
 
 ---
 
@@ -90,8 +90,9 @@ services:
 
 ### **Usage**
 
-* **Croned recording mode _(default)_**  
-  Please refer to [configuration](#configuration) section below to create configuration file.
+**Croned recording mode _(default)_**  
+* Make sure config.yaml is in the same path as the executable file.
+* Please refer to [configuration](#configuration) section below to create configuration file.
   ```Bash
   # Grant execution permission
   chmod 755 ./bin/croned-twitcasting-recorder-mp4
@@ -102,8 +103,10 @@ services:
   # Or specify croned recording mode explicitly 
   ./bin/croned-twitcasting-recorder-mp4 croned
   ```
+* In Windows, simply place the .exe file and config.yaml file in the same path and double-click the exe file.
 
-* **Direct recording mode**  
+
+**Direct recording mode**  
   Direct recording mode supports recording to start immediately, with configurable number of retries and retry backoff
   period.
   ```Bash
