@@ -5,31 +5,31 @@ import (
 	"golang.org/x/net/html"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
 
 const (
-	baseDomain           = "https://twitcasting.tv"
-	streamTitleClassName = "tw-player-page-title-title"
-	requestTimeout       = 4 * time.Second
+	baseDomain                = "https://twitcasting.tv"
+	streamTitleClassName      = "tw-player-page-title-title"
+	TitleDescriptionClassName = "tw-player-page-title-description"
+	requestTimeout            = 4 * time.Second
 )
 
 var httpClient = &http.Client{
 	Timeout: requestTimeout,
 }
 
-func findElementByClass(node *html.Node, targetClass string) *html.Node {
-	if node.Type == html.ElementNode && node.Data == "div" {
-		for _, attr := range node.Attr {
-			if attr.Key == "class" && strings.Contains(attr.Val, targetClass) {
-				return node
-			}
+func findElementByClassName(node *html.Node, targetClass string) *html.Node {
+	for _, attr := range node.Attr {
+		if attr.Key == "class" && strings.Contains(attr.Val, targetClass) {
+			return node
 		}
 	}
 
 	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		if found := findElementByClass(child, targetClass); found != nil {
+		if found := findElementByClassName(child, targetClass); found != nil {
 			return found
 		}
 	}
@@ -37,13 +37,13 @@ func findElementByClass(node *html.Node, targetClass string) *html.Node {
 	return nil
 }
 
-func findElementByTagName(node *html.Node, targetTag string) *html.Node {
+func findElementByHTMLTagName(node *html.Node, targetTag string) *html.Node {
 	if node.Type == html.ElementNode && node.Data == targetTag {
 		return node
 	}
 
 	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		if found := findElementByTagName(child, targetTag); found != nil {
+		if found := findElementByHTMLTagName(child, targetTag); found != nil {
 			return found
 		}
 	}
@@ -51,14 +51,19 @@ func findElementByTagName(node *html.Node, targetTag string) *html.Node {
 	return nil
 }
 
-func extractInnerText(node *html.Node) string {
+func extractElementInnerText(node *html.Node) string {
 	if node.Type == html.TextNode {
-		return node.Data
+		text := node.Data
+		// Trim multiple spaces
+		re := regexp.MustCompile(`\s+`)
+		processedText := re.ReplaceAllString(text, " ")
+		// Trim leading and trailing spaces
+		return strings.TrimSpace(processedText)
 	}
 
 	var result string
 	for child := node.FirstChild; child != nil; child = child.NextSibling {
-		result += extractInnerText(child)
+		result += extractElementInnerText(child)
 	}
 
 	return result
@@ -79,23 +84,42 @@ func GetStreamTitle(streamer string) (string, error) {
 		return "", err
 	}
 
+	titleDivElement := findElementByClassName(doc, streamTitleClassName)
+	titleDescriptionSpanElement := findElementByClassName(doc, TitleDescriptionClassName)
+
+	var title string
+	var titleDescription string
+
 	/*
 		<div class="tw-player-page-title-title">
-			<h2>{streamTitle}</h2>
+			<h2>{title}</h2>
 		</div>
 	*/
-	divElement := findElementByClass(doc, streamTitleClassName)
-
-	if divElement != nil {
-		h2Element := findElementByTagName(divElement, "h2")
-
+	if titleDivElement != nil {
+		h2Element := findElementByHTMLTagName(titleDivElement, "h2")
 		if h2Element != nil {
-			// return {streamTitle}
-			return extractInnerText(h2Element), nil
+			title = extractElementInnerText(h2Element)
 		} else {
-			return "", fmt.Errorf("unable to find stream title h2 element")
+			log.Println("Unable to find stream title h2 element")
+			title = ""
 		}
 	} else {
-		return "", fmt.Errorf("unable to find stream title div element")
+		log.Println("Unable to find stream title div element")
+		title = ""
 	}
+
+	/**
+	<span class="tw-player-page-title-description">
+		{titleDescription}
+		<span class="tw-player-page-title-description-text"></span>
+	</span>
+	*/
+	if titleDescriptionSpanElement != nil {
+		titleDescription = extractElementInnerText(titleDescriptionSpanElement)
+	} else {
+		log.Println("Unable to find stream title description span element")
+		titleDescription = ""
+	}
+
+	return fmt.Sprintf("%s %s", title, titleDescription), nil
 }
