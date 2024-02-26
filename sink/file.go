@@ -21,7 +21,10 @@ var IsTerminating = false
 
 func sanitizePathString(input string) string {
 	regex := regexp.MustCompile(`[\{\}\[\]\/?.,;:|\)*~!^\-_+<>@\#$%&\\\=\(\'\"\n\r]+`)
-	return regex.ReplaceAllString(input, "")
+	specialRemoved := regex.ReplaceAllString(input, "")
+	fullSpaceRemoved := strings.ReplaceAll(specialRemoved, "　", "_")
+	halfSpaceRemoved := strings.ReplaceAll(fullSpaceRemoved, " ", "_")
+	return halfSpaceRemoved
 }
 
 func GetFilePaths(recordCtx record.RecordContext) (string, string, string) {
