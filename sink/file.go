@@ -27,12 +27,19 @@ func sanitizePathString(input string) string {
 	return halfSpaceRemoved
 }
 
+func chkMaxFilenameLength(input string) string {
+	if len(input) > 250 {
+		return input[:250]
+	}
+	return input
+}
+
 func GetFilePaths(recordCtx record.RecordContext) (string, string, string) {
 	timestamp := time.Now().Format(timeFormat)
 	streamer := sanitizePathString(recordCtx.GetStreamer())
 	streamTitle := sanitizePathString(recordCtx.GetStreamTitle())
 
-	fileName := fmt.Sprintf("%s-%s", timestamp, streamTitle)
+	fileName := chkMaxFilenameLength(fmt.Sprintf("%s-%s", timestamp, streamTitle))
 	streamerRecordPath := fmt.Sprintf("%s/%s", baseRecordingPath, streamer)
 	tsFilePath := fmt.Sprintf("%s/%s.ts", streamerRecordPath, fileName)
 	mp4FilePath := fmt.Sprintf("%s/%s.mp4", streamerRecordPath, fileName)
