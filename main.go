@@ -36,7 +36,7 @@ func main() {
 		}
 	}
 
-	sinkProvider := func(recordCtx record.RecordContext) (chan<- []byte, error) {
+	sinkProvider := func(recordCtx record.RecordContext) (chan<- []byte, string, error) {
 		return sink.NewFileSink(recordCtx, defaultUploader)
 	}
 

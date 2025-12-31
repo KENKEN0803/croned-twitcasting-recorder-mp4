@@ -16,7 +16,7 @@ import (
 
 const CronedRecordCmdName = "croned"
 
-func RecordCroned(cfg *config.Config, sinkProvider func(record.RecordContext) (chan<- []byte, error)) {
+func RecordCroned(cfg *config.Config, sinkProvider func(record.RecordContext) (chan<- []byte, string, error)) {
 	log.Printf("Starting in recoding mode [%s] with PID [%d].. \n", CronedRecordCmdName, os.Getpid())
 
 	if len(cfg.Streamers) == 0 {

@@ -6,13 +6,14 @@ import (
 	"strings"
 
 	"github.com/jzhang046/croned-twitcasting-recorder-mp4/config"
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/sink" // Add sink import
 	"github.com/jzhang046/croned-twitcasting-recorder-mp4/types"
 )
 
 type RecordConfig struct {
 	Streamer         string
 	StreamUrlFetcher func(streamer, cookie string) (*types.StreamInfo, error)
-	SinkProvider     func(RecordContext) (chan<- []byte, error)
+	SinkProvider     func(RecordContext) (chan<- []byte, string, error) // Updated signature
 	StreamRecorder   func(recordCtx RecordContext, streamInfo *types.StreamInfo, sinkChan chan<- []byte, cookie string) error
 	RootContext      context.Context
 	EncodeOption     *string
@@ -42,7 +43,7 @@ func ToRecordFunc(recordConfig *RecordConfig) func() {
 		log.Printf("Stream Title is %s\n", streamTitle)
 
 		recordCtx := newRecordContext(recordConfig.RootContext, streamer, streamInfo.Url, streamTitle, recordConfig.EncodeOption, streamInfo.IsMembershipStream)
-		sinkChan, err := recordConfig.SinkProvider(recordCtx)
+		sinkChan, tsFilePath, err := recordConfig.SinkProvider(recordCtx) // Capture tsFilePath
 		if err != nil {
 			log.Println("Error creating recording file: ", err)
 			return
@@ -51,9 +52,10 @@ func ToRecordFunc(recordConfig *RecordConfig) func() {
 		// Attempt to record
 		err = recordConfig.StreamRecorder(recordCtx, streamInfo, sinkChan, "")
 		if err != nil && strings.Contains(err.Error(), "bad handshake") && cookie != "" {
-			// Auth error, retry with cookie
 			log.Printf("Authentication error for streamer [%s]. Retrying with cookie.", streamer)
-			recordCtx.Cancel() // Cancel the previous context
+			// Delete the empty file before retry
+			_ = sink.RemoveFileIfSmall(tsFilePath, 1024) // Delete the file if small
+			recordCtx.Cancel()                           // Cancel the previous context
 
 			// Fetch new stream info with cookie
 			streamInfo, err = recordConfig.StreamUrlFetcher(streamer, cookie)
@@ -65,7 +67,8 @@ func ToRecordFunc(recordConfig *RecordConfig) func() {
 
 			// Create new context and sink
 			recordCtx = newRecordContext(recordConfig.RootContext, streamer, streamInfo.Url, streamTitle, recordConfig.EncodeOption, streamInfo.IsMembershipStream)
-			sinkChan, err = recordConfig.SinkProvider(recordCtx)
+			var retryTsFilePath string
+			sinkChan, retryTsFilePath, err = recordConfig.SinkProvider(recordCtx) // Capture tsFilePath for retry
 			if err != nil {
 				log.Println("Error creating recording file for retry: ", err)
 				return
@@ -74,10 +77,15 @@ func ToRecordFunc(recordConfig *RecordConfig) func() {
 			err = recordConfig.StreamRecorder(recordCtx, streamInfo, sinkChan, cookie)
 			if err != nil {
 				log.Printf("Recording retry failed for streamer [%s]: %v", streamer, err)
+				if strings.Contains(err.Error(), "bad handshake") {
+					_ = sink.RemoveFileIfSmall(retryTsFilePath, 1024) // Delete file if retry also fails handshake and file is small
+				}
 			}
 
 		} else if err != nil {
 			log.Printf("Recording failed for streamer [%s]: %v", streamer, err)
+			// Also delete the file if recording failed for other reasons (not a handshake retry) and file is small
+			_ = sink.RemoveFileIfSmall(tsFilePath, 1024)
 		}
 	}
 }

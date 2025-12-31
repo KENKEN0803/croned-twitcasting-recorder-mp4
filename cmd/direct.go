@@ -17,7 +17,7 @@ const (
 	defaultRetryBackoffPeriod = 15 * time.Second
 )
 
-func RecordDirect(cfg *config.Config, args []string, sinkProvider func(record.RecordContext) (chan<- []byte, error)) {
+func RecordDirect(cfg *config.Config, args []string, sinkProvider func(record.RecordContext) (chan<- []byte, string, error)) {
 	log.Printf("Starting in recoding mode [%s] with PID [%d].. \n", DirectRecordCmdName, os.Getpid())
 
 	directRecordCmd := flag.NewFlagSet(DirectRecordCmdName, flag.ExitOnError)
