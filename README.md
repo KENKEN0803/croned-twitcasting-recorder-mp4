@@ -51,6 +51,40 @@ services:
 
 ```
 
+### Docker Build (Multi-platform)
+
+You can build `linux/amd64` and `linux/arm64` images simultaneously from an ARM Mac (like M1/M2/M3) using `docker buildx`.
+
+**1. Setup Buildx Builder (One-time setup)**
+
+First, create and switch to a new builder instance.
+
+```bash
+docker buildx create --name mybuilder --use
+```
+
+**2. Build and Push the Image**
+
+This command builds the image for both architectures and pushes them to a registry like Docker Hub.
+
+**Important**: Replace `your-dockerhub-username/your-repo-name` with your actual Docker Hub username and repository name.
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t your-dockerhub-username/your-repo-name:latest --push .
+```
+
+**Local Testing**
+
+If you want to build for your current architecture and load it into your local Docker daemon for testing (without pushing), use the `--load` flag:
+
+```bash
+# On an ARM Mac
+docker buildx build --platform linux/arm64 -t my-app:local-arm --load .
+
+# On an AMD64 machine
+docker buildx build --platform linux/amd64 -t my-app:local-amd64 --load .
+```
+
 ---
 
 ### **Requirements**

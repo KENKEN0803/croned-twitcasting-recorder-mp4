@@ -18,23 +18,37 @@ func init() {
 	validate = validator.New()
 }
 
-type cronConfig struct {
+type R2Config struct {
+	Enabled         bool   `yaml:"enabled"`
+	Endpoint        string `yaml:"endpoint"`
+	Bucket          string `yaml:"bucket"`
+	AccessKeyID     string `yaml:"access-key-id"`
+	SecretAccessKey string `yaml:"secret-access-key"`
+}
+
+type TwitcastingConfig struct {
+	Cookie string `yaml:"cookie"`
+}
+
+type Config struct {
 	Streamers []*struct {
 		ScreenId     string  `yaml:"screen-id" validate:"required"`
 		Schedule     string  `yaml:"schedule" validate:"required"`
 		EncodeOption *string `yaml:"encode-option"`
-	} `yaml:"streamers" validate:"min=1,dive"`
+	} `yaml:"streamers" validate:"dive"`
+	R2          *R2Config          `yaml:"r2"`
+	Twitcasting *TwitcastingConfig `yaml:"twitcasting"`
 }
 
-func GetDefaultConfig() *cronConfig {
-	cronConfig, err := parseConfig(defaultConfigPath)
+func GetDefaultConfig() *Config {
+	config, err := parseConfig(defaultConfigPath)
 	if err != nil {
 		log.Fatal("Error parsing config file: \n", err)
 	}
-	return cronConfig
+	return config
 }
 
-func parseConfig(configPath string) (*cronConfig, error) {
+func parseConfig(configPath string) (*Config, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Fatalln("Paniced parsing user config: ", r)
@@ -46,10 +60,10 @@ func parseConfig(configPath string) (*cronConfig, error) {
 		return nil, err
 	}
 
-	cronConfig := &cronConfig{}
-	if err := yaml.Unmarshal(configData, cronConfig); err != nil {
+	config := &Config{}
+	if err := yaml.Unmarshal(configData, config); err != nil {
 		return nil, err
 	}
 
-	return cronConfig, validate.Struct(cronConfig)
+	return config, validate.Struct(config)
 }

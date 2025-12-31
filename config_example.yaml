@@ -2,3 +2,17 @@ streamers:
   - screen-id: "azusa_shirokyan"
     schedule: "@every 3m"
 #    encode-option: "libx265 -preset ultrafast"
+
+#twitcasting:
+#  # Fill in the cookie value of the logged-in account to record membership-only streams.
+#  # How to get: https://developer.chrome.com/docs/devtools/http/cookies
+#  cookie: ""
+
+#r2:
+#  # Set to true to enable Cloudflare R2 upload.
+#  enabled: false
+#  # R2 endpoint. e.g., "https://<accountid>.r2.cloudflarestorage.com"
+#  endpoint: ""
+#  bucket: ""
+#  access-key-id: ""
+#  secret-access-key: ""

@@ -23,6 +23,9 @@ type RecordContext interface {
 
 	// GetEncodeOption returns ffmpeg video encode options of this context
 	GetEncodeOption() *string
+
+	// IsMembershipStream returns true if the stream is a membership-only stream.
+	IsMembershipStream() bool
 }
 
 type recordContextImpl struct {
@@ -33,18 +36,20 @@ type recordContextImpl struct {
 type contextKey string
 
 const (
-	streamerKey     = contextKey("streamer")
-	streamUrlKey    = contextKey("streamUrl")
-	encodeOptionKey = contextKey("encodeOption")
-	streamTitleKey  = contextKey("streamTitle")
+	streamerKey           = contextKey("streamer")
+	streamUrlKey          = contextKey("streamUrl")
+	encodeOptionKey       = contextKey("encodeOption")
+	streamTitleKey        = contextKey("streamTitle")
+	isMembershipStreamKey = contextKey("isMembershipStream")
 )
 
-func newRecordContext(ctx context.Context, streamer, streamUrl string, streamTitle string, encodeOption *string) RecordContext {
+func newRecordContext(ctx context.Context, streamer, streamUrl string, streamTitle string, encodeOption *string, isMembership bool) RecordContext {
 	ctx, cancelFunc := context.WithCancel(ctx)
 	ctx = context.WithValue(ctx, streamUrlKey, streamUrl)
 	ctx = context.WithValue(ctx, streamerKey, streamer)
 	ctx = context.WithValue(ctx, streamTitleKey, streamTitle)
 	ctx = context.WithValue(ctx, encodeOptionKey, encodeOption)
+	ctx = context.WithValue(ctx, isMembershipStreamKey, isMembership)
 	return &recordContextImpl{ctx, cancelFunc}
 }
 
@@ -74,4 +79,9 @@ func (ctxImpl *recordContextImpl) GetStreamTitle() string {
 
 func (ctxImpl *recordContextImpl) GetEncodeOption() *string {
 	return ctxImpl.ctx.Value(encodeOptionKey).(*string)
+}
+
+func (ctxImpl *recordContextImpl) IsMembershipStream() bool {
+	isMembership, ok := ctxImpl.ctx.Value(isMembershipStreamKey).(bool)
+	return ok && isMembership
 }

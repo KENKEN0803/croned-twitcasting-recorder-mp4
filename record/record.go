@@ -3,41 +3,81 @@ package record
 import (
 	"context"
 	"log"
+	"strings"
+
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/config"
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/types"
 )
 
 type RecordConfig struct {
 	Streamer         string
-	StreamUrlFetcher func(string) (string, error)
+	StreamUrlFetcher func(streamer, cookie string) (*types.StreamInfo, error)
 	SinkProvider     func(RecordContext) (chan<- []byte, error)
-	StreamRecorder   func(RecordContext, chan<- []byte)
+	StreamRecorder   func(recordCtx RecordContext, streamInfo *types.StreamInfo, sinkChan chan<- []byte, cookie string) error
 	RootContext      context.Context
 	EncodeOption     *string
+	AppConfig        *config.Config
 }
 
 func ToRecordFunc(recordConfig *RecordConfig) func() {
 	streamer := recordConfig.Streamer
 	return func() {
-		streamUrl, err := recordConfig.StreamUrlFetcher(streamer)
+		var cookie string
+		if recordConfig.AppConfig != nil && recordConfig.AppConfig.Twitcasting != nil {
+			cookie = recordConfig.AppConfig.Twitcasting.Cookie
+		}
+
+		// First attempt, without cookie
+		streamInfo, err := recordConfig.StreamUrlFetcher(streamer, "")
 		if err != nil {
-			log.Printf("Error fetching stream URL for streamer [%s]: %v\n", streamer, err)
+			//log.Printf("Error fetching stream info for streamer [%s]: %v\n", streamer, err)
 			return
 		}
-		log.Printf("Fetched stream URL for streamer [%s]: %s. ", streamer, streamUrl)
 
+		// Prepare for recording
 		streamTitle, err := GetStreamTitle(streamer)
 		if err != nil {
 			log.Printf("Error fetching stream title for streamer [%s]: %v\n", streamer, err)
 		}
 		log.Printf("Stream Title is %s\n", streamTitle)
 
-		recordCtx := newRecordContext(recordConfig.RootContext, streamer, streamUrl, streamTitle, recordConfig.EncodeOption)
-
+		recordCtx := newRecordContext(recordConfig.RootContext, streamer, streamInfo.Url, streamTitle, recordConfig.EncodeOption, streamInfo.IsMembershipStream)
 		sinkChan, err := recordConfig.SinkProvider(recordCtx)
 		if err != nil {
 			log.Println("Error creating recording file: ", err)
 			return
 		}
 
-		recordConfig.StreamRecorder(recordCtx, sinkChan)
+		// Attempt to record
+		err = recordConfig.StreamRecorder(recordCtx, streamInfo, sinkChan, "")
+		if err != nil && strings.Contains(err.Error(), "bad handshake") && cookie != "" {
+			// Auth error, retry with cookie
+			log.Printf("Authentication error for streamer [%s]. Retrying with cookie.", streamer)
+			recordCtx.Cancel() // Cancel the previous context
+
+			// Fetch new stream info with cookie
+			streamInfo, err = recordConfig.StreamUrlFetcher(streamer, cookie)
+			if err != nil {
+				log.Printf("Error fetching stream info with cookie for streamer [%s]: %v\n", streamer, err)
+				return
+			}
+			log.Printf("Fetched new stream URL for streamer [%s]: %s. ", streamer, streamInfo.Url)
+
+			// Create new context and sink
+			recordCtx = newRecordContext(recordConfig.RootContext, streamer, streamInfo.Url, streamTitle, recordConfig.EncodeOption, streamInfo.IsMembershipStream)
+			sinkChan, err = recordConfig.SinkProvider(recordCtx)
+			if err != nil {
+				log.Println("Error creating recording file for retry: ", err)
+				return
+			}
+			// Retry recording
+			err = recordConfig.StreamRecorder(recordCtx, streamInfo, sinkChan, cookie)
+			if err != nil {
+				log.Printf("Recording retry failed for streamer [%s]: %v", streamer, err)
+			}
+
+		} else if err != nil {
+			log.Printf("Recording failed for streamer [%s]: %v", streamer, err)
+		}
 	}
 }

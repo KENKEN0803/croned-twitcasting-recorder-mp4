@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/jsonq"
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/types"
 )
 
 const (
@@ -22,7 +23,7 @@ var httpClient = &http.Client{
 	Timeout: requestTimeout,
 }
 
-func GetWSStreamUrl(streamer string) (string, error) {
+func fetchStreamInfo(streamer, cookie string) (*types.StreamInfo, error) {
 	u, _ := url.Parse(apiEndpoint)
 	q := u.Query()
 	q.Set("target", streamer)
@@ -32,29 +33,53 @@ func GetWSStreamUrl(streamer string) (string, error) {
 	request, _ := http.NewRequest(http.MethodGet, u.String(), nil)
 	request.Header.Set("User-Agent", userAgent)
 	request.Header.Set("Referer", fmt.Sprint(baseDomain, "/", streamer))
+	if cookie != "" {
+		request.Header.Set("Cookie", cookie)
+	}
+
 	response, err := httpClient.Do(request)
 	if err != nil {
-		return "", fmt.Errorf("requesting stream info failed: %w", err)
+		return nil, fmt.Errorf("requesting stream info failed: %w", err)
 	}
 	defer response.Body.Close()
 
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get stream info, status: %s", response.Status)
+	}
+
 	responseData := map[string]interface{}{}
 	if err = json.NewDecoder(response.Body).Decode(&responseData); err != nil {
-		return "", err
+		return nil, err
 	}
 	jq := jsonq.NewQuery(responseData)
 
 	if err = checkStreamOnline(jq); err != nil {
-		return "", err
+		return nil, err
 	}
+
+	isProtected, _ := jq.Bool("movie", "is_protected") // Guessing the field name
+	password, _ := jq.String("fmp4", "password")
 
 	// Try to get URL directly
-	if streamUrl, err := getDirectStreamUrl(jq); err == nil {
-		return streamUrl, nil
+	streamUrl, err := getDirectStreamUrl(jq)
+	if err != nil {
+		log.Printf("Direct Stream URL for streamer [%s] not available; fallback to default URL\n", streamer)
+		streamUrl, err = fallbackStreamUrl(jq)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	log.Printf("Direct Stream URL for streamer [%s] not available in the API response; fallback to default URL\n", streamer)
-	return fallbackStreamUrl(jq)
+	return &types.StreamInfo{
+		Url:                streamUrl,
+		Password:           password,
+		IsMembershipStream: isProtected,
+	}, nil
+
+}
+
+func GetWSStreamUrl(streamer string, cookie string) (*types.StreamInfo, error) {
+	return fetchStreamInfo(streamer, cookie)
 }
 
 func checkStreamOnline(jq *jsonq.JsonQuery) error {

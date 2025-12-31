@@ -2,13 +2,16 @@ package sink
 
 import (
 	"fmt"
-	"github.com/jzhang046/croned-twitcasting-recorder/record"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/record"
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/uploader"
 )
 
 const (
@@ -18,6 +21,13 @@ const (
 )
 
 var IsTerminating = false
+
+type FileSink struct {
+	tsFilePath  string
+	mp4FilePath string
+	uploader    uploader.Uploader
+	recordCtx   record.RecordContext
+}
 
 func sanitizePathString(input string) string {
 	regex := regexp.MustCompile(`[\{\}\[\]\/?.,;:|\)*~!^\-_+<>@\#$%&\\\=\(\'\"\n\r]+`)
@@ -40,6 +50,10 @@ func GetFilePaths(recordCtx record.RecordContext) (string, string, string) {
 	streamTitle := sanitizePathString(recordCtx.GetStreamTitle())
 
 	fileName := chkMaxFilenameLength(fmt.Sprintf("%s-%s", timestamp, streamTitle))
+	if recordCtx.IsMembershipStream() {
+		fileName = "_" + fileName
+	}
+
 	streamerRecordPath := fmt.Sprintf("%s/%s", baseRecordingPath, streamer)
 	tsFilePath := fmt.Sprintf("%s/%s.ts", streamerRecordPath, fileName)
 	mp4FilePath := fmt.Sprintf("%s/%s.mp4", streamerRecordPath, fileName)
@@ -65,7 +79,7 @@ func CreateRecordingFolder(streamerRecordPath string) error {
 	return nil
 }
 
-func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
+func NewFileSink(recordCtx record.RecordContext, uploader uploader.Uploader) (chan<- []byte, error) {
 	tsFilePath, mp4FilePath, streamerRecordPath := GetFilePaths(recordCtx)
 
 	err := CreateRecordingFolder(streamerRecordPath)
@@ -73,43 +87,80 @@ func NewFileSink(recordCtx record.RecordContext) (chan<- []byte, error) {
 		return nil, err
 	}
 
-	// If the file doesn't exist, create it, or append to the file
-	f, err := os.OpenFile(tsFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
-	if err != nil {
-		return nil, err
+	sink := &FileSink{
+		tsFilePath:  tsFilePath,
+		mp4FilePath: mp4FilePath,
+		uploader:    uploader,
+		recordCtx:   recordCtx,
 	}
-	log.Printf("Recording file %s", tsFilePath)
+
+	return sink.start(), nil
+}
+
+func (f *FileSink) start() chan<- []byte {
+	// If the file doesn't exist, create it, or append to the file
+	file, err := os.OpenFile(f.tsFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
+	if err != nil {
+		log.Printf("Failed to open file %s: %v", f.tsFilePath, err)
+		f.recordCtx.Cancel()
+		return nil
+	}
+	log.Printf("Recording file %s", f.tsFilePath)
 
 	sinkChan := make(chan []byte, sinkChanBuffer)
 
 	go func() {
-		defer f.Close()
+		defer file.Close()
 		for data := range sinkChan {
-			if _, err = f.Write(data); err != nil {
-				log.Printf("Error writing recording file %s: %v\n", tsFilePath, err)
-				recordCtx.Cancel()
+			if _, err = file.Write(data); err != nil {
+				log.Printf("Error writing recording file %s: %v\n", f.tsFilePath, err)
+				f.recordCtx.Cancel()
 				return
 			}
 		}
 
-		log.Printf("Completed writing all data to %s\n", tsFilePath)
+		log.Printf("Completed writing all data to %s", f.tsFilePath)
+		f.uploadTS()
 
 		if !IsTerminating {
-			go func() {
-				if isFFmpegInstalled() {
-					err := convertTsToMp4(tsFilePath, mp4FilePath, recordCtx.GetEncodeOption())
-					if err == nil {
-						_ = RemoveFile(tsFilePath)
-					}
-				} else {
-					log.Printf("ffmpeg is not installed, skipping conversion to mp4\n")
-				}
-			}()
+			go f.convertAndUploadMP4()
 		}
 
 	}()
 
-	return sinkChan, nil
+	return sinkChan
+}
+
+func (f *FileSink) uploadTS() {
+	if f.uploader != nil {
+		go func() {
+			remotePath := "/ts/" + filepath.Base(f.tsFilePath)
+			if err := f.uploader.Upload(f.tsFilePath, remotePath); err != nil {
+				log.Printf("TS upload failed for %s: %v", f.tsFilePath, err)
+			}
+		}()
+	}
+}
+
+func (f *FileSink) convertAndUploadMP4() {
+	if isFFmpegInstalled() {
+		err := f.convertTsToMp4()
+		if err != nil {
+			return // Conversion failed, so don't upload or remove
+		}
+
+		if f.uploader != nil {
+			go func() {
+				remotePath := "/mp4/" + filepath.Base(f.mp4FilePath)
+				if err := f.uploader.Upload(f.mp4FilePath, remotePath); err != nil {
+					log.Printf("MP4 upload failed for %s: %v", f.mp4FilePath, err)
+				}
+			}()
+		}
+		_ = RemoveFile(f.tsFilePath)
+	} else {
+		log.Printf("ffmpeg is not installed, skipping conversion to mp4\n")
+	}
 }
 
 func isFFmpegInstalled() bool {
@@ -123,32 +174,29 @@ func isFFmpegInstalled() bool {
 	return true
 }
 
-func convertTsToMp4(tsFilename string, mp4Filename string, encodeOption *string) error {
-	// Run ffmpeg command to convert .ts to .mp4
-
+func (f *FileSink) convertTsToMp4() error {
+	encodeOption := f.recordCtx.GetEncodeOption()
 	if encodeOption == nil {
-		encodeOption = new(string)
-		*encodeOption = "copy"
+		defaultOption := "copy"
+		encodeOption = &defaultOption
 	}
 
-	// Split the encodeOption string into separate arguments
 	encodeOptions := strings.Fields(*encodeOption)
 
-	// Create a command with individual arguments
-	ffmpegArgs := []string{"-i", tsFilename, "-c:v"}
+	ffmpegArgs := []string{"-i", f.tsFilePath, "-c:v"}
 	ffmpegArgs = append(ffmpegArgs, encodeOptions...)
-	ffmpegArgs = append(ffmpegArgs, "-c:a", "copy", mp4Filename)
+	ffmpegArgs = append(ffmpegArgs, "-c:a", "copy", f.mp4FilePath)
 
-	log.Printf("Stert Converting... ffmpeg args = %v\n", ffmpegArgs)
+	log.Printf("Start Converting... ffmpeg args = %v", ffmpegArgs)
 
 	ffmpegCmd := exec.Command("ffmpeg", ffmpegArgs...)
 
 	err := ffmpegCmd.Run()
 	if err != nil {
-		log.Printf("Error running ffmpeg command: %v\n", err)
+		log.Printf("Error running ffmpeg command: %v", err)
 		return err
 	}
-	log.Printf("Conversion to %s completed\n", mp4Filename)
+	log.Printf("Conversion to %s completed", f.mp4FilePath)
 	return nil
 }
 

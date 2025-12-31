@@ -6,9 +6,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/jzhang046/croned-twitcasting-recorder/record"
-	"github.com/jzhang046/croned-twitcasting-recorder/sink"
-	"github.com/jzhang046/croned-twitcasting-recorder/twitcasting"
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/config"
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/record"
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/twitcasting"
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/types"
 )
 
 const (
@@ -16,7 +17,7 @@ const (
 	defaultRetryBackoffPeriod = 15 * time.Second
 )
 
-func RecordDirect(args []string) {
+func RecordDirect(cfg *config.Config, args []string, sinkProvider func(record.RecordContext) (chan<- []byte, error)) {
 	log.Printf("Starting in recoding mode [%s] with PID [%d].. \n", DirectRecordCmdName, os.Getpid())
 
 	directRecordCmd := flag.NewFlagSet(DirectRecordCmdName, flag.ExitOnError)
@@ -54,12 +55,15 @@ func RecordDirect(args []string) {
 			*streamer, *retries, *retryBackoffPeriod,
 		)
 		record.ToRecordFunc(&record.RecordConfig{
-			Streamer:         *streamer,
-			StreamUrlFetcher: twitcasting.GetWSStreamUrl,
-			SinkProvider:     sink.NewFileSink,
-			StreamRecorder:   twitcasting.RecordWS,
-			RootContext:      interruptCtx,
-			EncodeOption:     encodeOption,
+			Streamer: *streamer,
+			StreamUrlFetcher: func(streamer, cookie string) (*types.StreamInfo, error) {
+				return twitcasting.GetWSStreamUrl(streamer, cookie)
+			},
+			SinkProvider:   sinkProvider,
+			StreamRecorder: twitcasting.RecordWS,
+			RootContext:    interruptCtx,
+			EncodeOption:   encodeOption,
+			AppConfig:      cfg,
 		})()
 		select {
 		// wait for either interrupted or retry backoff period

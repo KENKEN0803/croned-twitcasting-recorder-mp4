@@ -2,22 +2,28 @@ package cmd
 
 import (
 	"log"
+	"math/rand"
 	"os"
+	"time"
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/jzhang046/croned-twitcasting-recorder/config"
-	"github.com/jzhang046/croned-twitcasting-recorder/record"
-	"github.com/jzhang046/croned-twitcasting-recorder/sink"
-	"github.com/jzhang046/croned-twitcasting-recorder/twitcasting"
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/config"
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/record"
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/twitcasting"
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/types"
 )
 
 const CronedRecordCmdName = "croned"
 
-func RecordCroned() {
+func RecordCroned(cfg *config.Config, sinkProvider func(record.RecordContext) (chan<- []byte, error)) {
 	log.Printf("Starting in recoding mode [%s] with PID [%d].. \n", CronedRecordCmdName, os.Getpid())
 
-	cfg := config.GetDefaultConfig()
+	if len(cfg.Streamers) == 0 {
+		log.Println("No streamers configured in config.yaml for cron mode. Exiting.")
+		return
+	}
+
 	c := cron.New(cron.WithChain(
 		cron.Recover(cron.DefaultLogger),
 		cron.SkipIfStillRunning(cron.DefaultLogger),
@@ -26,16 +32,29 @@ func RecordCroned() {
 	interruptCtx, afterGracefulInterrupt := newInterruptableCtx()
 
 	for _, streamerConfig := range cfg.Streamers {
+		originalJob := record.ToRecordFunc(&record.RecordConfig{
+			Streamer: streamerConfig.ScreenId,
+			StreamUrlFetcher: func(streamer, cookie string) (*types.StreamInfo, error) {
+				return twitcasting.GetWSStreamUrl(streamer, cookie)
+			},
+			SinkProvider:   sinkProvider,
+			StreamRecorder: twitcasting.RecordWS,
+			RootContext:    interruptCtx,
+			EncodeOption:   streamerConfig.EncodeOption,
+			AppConfig:      cfg,
+		})
+
+		wrappedJob := func() {
+			// delay for 1 to 10 seconds
+			delay := time.Duration(rand.Intn(10)+1) * time.Second
+			//log.Printf("Schedule triggered for streamer [%s], waiting for a random delay of %v before starting...", streamerConfig.ScreenId, delay)
+			time.Sleep(delay)
+			originalJob()
+		}
+
 		if _, err := c.AddFunc(
 			streamerConfig.Schedule,
-			record.ToRecordFunc(&record.RecordConfig{
-				Streamer:         streamerConfig.ScreenId,
-				StreamUrlFetcher: twitcasting.GetWSStreamUrl,
-				SinkProvider:     sink.NewFileSink,
-				StreamRecorder:   twitcasting.RecordWS,
-				RootContext:      interruptCtx,
-				EncodeOption:     streamerConfig.EncodeOption,
-			}),
+			wrappedJob,
 		); err != nil {
 			log.Fatalln("Failed adding record schedule: ", err)
 		} else {

@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"context"
-	"github.com/jzhang046/croned-twitcasting-recorder/sink"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/jzhang046/croned-twitcasting-recorder-mp4/sink"
 )
 
 const terminationGraceDuration = 3 * time.Second

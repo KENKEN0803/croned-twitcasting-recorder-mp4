@@ -1,10 +1,11 @@
-FROM --platform=$TARGETPLATFORM golang:1.21.6-alpine3.19 AS builder
+FROM --platform=$TARGETPLATFORM golang:1.25.5-alpine3.23 AS builder
 
 WORKDIR /tw
 
 COPY . .
 
-RUN GOOS=linux go build -o ./bin/croned-twitcasting-recorder-mp4
+ARG TARGETARCH
+RUN GOOS=linux GOARCH=$TARGETARCH go build -o ./bin/croned-twitcasting-recorder-mp4 main.go
 
 FROM --platform=$TARGETPLATFORM alpine:3.19.0
 
