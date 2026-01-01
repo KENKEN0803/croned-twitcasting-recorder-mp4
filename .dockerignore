@@ -8,3 +8,8 @@ config.yaml
 
 # vim
 *.swp
+
+/file
+*.mp4
+
+croned-twitcasting-recorder-mp4

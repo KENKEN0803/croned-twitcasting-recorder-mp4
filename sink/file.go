@@ -10,23 +10,32 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jzhang046/croned-twitcasting-recorder-mp4/record"
 	"github.com/jzhang046/croned-twitcasting-recorder-mp4/uploader"
 )
 
 const (
 	timeFormat        = "20060102-1504"
-	sinkChanBuffer    = 16
+	SinkChanBuffer    = 16 // Exported
 	baseRecordingPath = "./file"
 )
 
 var IsTerminating = false
 
+// ContextCanceller defines the interface for canceling a context
+// and providing stream-related information, used to break import cycle.
+type ContextCanceller interface {
+	Cancel()
+	GetStreamer() string
+	GetStreamTitle() string
+	GetEncodeOption() *string
+	IsMembershipStream() bool
+}
+
 type FileSink struct {
 	tsFilePath  string
 	mp4FilePath string
 	uploader    uploader.Uploader
-	recordCtx   record.RecordContext
+	recordCtx   ContextCanceller
 }
 
 func sanitizePathString(input string) string {
@@ -44,7 +53,7 @@ func chkMaxFilenameLength(input string) string {
 	return input
 }
 
-func GetFilePaths(recordCtx record.RecordContext) (string, string, string) {
+func GetFilePaths(recordCtx ContextCanceller) (string, string, string) {
 	timestamp := time.Now().Format(timeFormat)
 	streamer := sanitizePathString(recordCtx.GetStreamer())
 	streamTitle := sanitizePathString(recordCtx.GetStreamTitle())
@@ -79,12 +88,12 @@ func CreateRecordingFolder(streamerRecordPath string) error {
 	return nil
 }
 
-func NewFileSink(recordCtx record.RecordContext, uploader uploader.Uploader) (chan<- []byte, error) {
+func NewFileSink(recordCtx ContextCanceller, uploader uploader.Uploader) (chan<- []byte, string, error) {
 	tsFilePath, mp4FilePath, streamerRecordPath := GetFilePaths(recordCtx)
 
 	err := CreateRecordingFolder(streamerRecordPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	sink := &FileSink{
@@ -94,7 +103,7 @@ func NewFileSink(recordCtx record.RecordContext, uploader uploader.Uploader) (ch
 		recordCtx:   recordCtx,
 	}
 
-	return sink.start(), nil
+	return sink.start(), tsFilePath, nil
 }
 
 func (f *FileSink) start() chan<- []byte {
@@ -107,7 +116,7 @@ func (f *FileSink) start() chan<- []byte {
 	}
 	log.Printf("Recording file %s", f.tsFilePath)
 
-	sinkChan := make(chan []byte, sinkChanBuffer)
+	sinkChan := make(chan []byte, SinkChanBuffer)
 
 	go func() {
 		defer file.Close()
@@ -134,7 +143,8 @@ func (f *FileSink) start() chan<- []byte {
 func (f *FileSink) uploadTS() {
 	if f.uploader != nil {
 		go func() {
-			remotePath := "/ts/" + filepath.Base(f.tsFilePath)
+			streamer := sanitizePathString(f.recordCtx.GetStreamer())
+			remotePath := streamer + "-" + filepath.Base(f.tsFilePath) // Updated remotePath construction
 			if err := f.uploader.Upload(f.tsFilePath, remotePath); err != nil {
 				log.Printf("TS upload failed for %s: %v", f.tsFilePath, err)
 			}
@@ -151,7 +161,8 @@ func (f *FileSink) convertAndUploadMP4() {
 
 		if f.uploader != nil {
 			go func() {
-				remotePath := "/mp4/" + filepath.Base(f.mp4FilePath)
+				streamer := sanitizePathString(f.recordCtx.GetStreamer())
+				remotePath := streamer + "-" + filepath.Base(f.mp4FilePath) // Updated remotePath construction
 				if err := f.uploader.Upload(f.mp4FilePath, remotePath); err != nil {
 					log.Printf("MP4 upload failed for %s: %v", f.mp4FilePath, err)
 				}
@@ -207,5 +218,26 @@ func RemoveFile(filename string) error {
 	}
 	log.Printf("Removed %s\n", filename)
 
+	return nil
+}
+
+// RemoveFileIfSmall checks the file size and removes it if it's smaller than the threshold.
+func RemoveFileIfSmall(filename string, thresholdBytes int64) error {
+	fileInfo, err := os.Stat(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist, nothing to do
+			return nil
+		}
+		log.Printf("Error stating file %s: %v\n", filename, err)
+		return err
+	}
+
+	if fileInfo.Size() < thresholdBytes {
+		log.Printf("File %s size (%d bytes) is less than threshold (%d bytes). Removing.", filename, fileInfo.Size(), thresholdBytes)
+		return RemoveFile(filename)
+	}
+
+	log.Printf("File %s size (%d bytes) is not less than threshold (%d bytes). Keeping.", filename, fileInfo.Size(), thresholdBytes)
 	return nil
 }
