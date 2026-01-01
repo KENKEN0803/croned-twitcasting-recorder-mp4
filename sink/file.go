@@ -194,9 +194,11 @@ func (f *FileSink) convertTsToMp4() error {
 
 	encodeOptions := strings.Fields(*encodeOption)
 
+	tmpMp4FilePath := f.mp4FilePath + ".tmp"
+
 	ffmpegArgs := []string{"-i", f.tsFilePath, "-c:v"}
 	ffmpegArgs = append(ffmpegArgs, encodeOptions...)
-	ffmpegArgs = append(ffmpegArgs, "-c:a", "copy", f.mp4FilePath)
+	ffmpegArgs = append(ffmpegArgs, "-c:a", "copy", tmpMp4FilePath)
 
 	log.Printf("Start Converting... ffmpeg args = %v", ffmpegArgs)
 
@@ -205,8 +207,19 @@ func (f *FileSink) convertTsToMp4() error {
 	err := ffmpegCmd.Run()
 	if err != nil {
 		log.Printf("Error running ffmpeg command: %v", err)
+		// Clean up the temporary file if conversion fails
+		if removeErr := os.Remove(tmpMp4FilePath); removeErr != nil && !os.IsNotExist(removeErr) {
+			log.Printf("Error removing temporary file %s: %v", tmpMp4FilePath, removeErr)
+		}
 		return err
 	}
+
+	// Rename the temporary file to the final file name on success
+	if err := os.Rename(tmpMp4FilePath, f.mp4FilePath); err != nil {
+		log.Printf("Error renaming temporary file %s to %s: %v", tmpMp4FilePath, f.mp4FilePath, err)
+		return err
+	}
+
 	log.Printf("Conversion to %s completed", f.mp4FilePath)
 	return nil
 }
