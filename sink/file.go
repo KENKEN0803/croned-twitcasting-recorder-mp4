@@ -198,7 +198,7 @@ func (f *FileSink) convertTsToMp4() error {
 
 	ffmpegArgs := []string{"-i", f.tsFilePath, "-c:v"}
 	ffmpegArgs = append(ffmpegArgs, encodeOptions...)
-	ffmpegArgs = append(ffmpegArgs, "-c:a", "copy", tmpMp4FilePath)
+	ffmpegArgs = append(ffmpegArgs, "-c:a", "copy", "-f", "mp4", tmpMp4FilePath)
 
 	log.Printf("Start Converting... ffmpeg args = %v", ffmpegArgs)
 
